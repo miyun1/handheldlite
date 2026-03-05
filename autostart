@@ -10,28 +10,32 @@ xset s off
 xset s noblank
 xset -dpms
 
-# Start HUD overlay (status bar at top of screen)
+# Start HUD overlay (30px bar at very top)
 python3 /home/pi/kiosk/hud_overlay.py &
 
 # Start gamepad cursor controller
 python3 /home/pi/kiosk/gamepad_cursor.py &
 
+# Watch for new Chromium windows and force correct size/position
+python3 /home/pi/kiosk/window_watcher.py &
+
 # Wait for system to settle
 sleep 2
 
-# Launch Chromium in kiosk mode
-# Window offset 30px from top to sit below the HUD bar
+# Launch Chromium
+# --app mode = no address bar, no tabs, borderless window
+# --remote-debugging-port=9222 = CDP for keyboard detection
+# --window-position=0,30 = sits below the 30px HUD bar
+# --window-size=800,450 = fills rest of 800x480 screen
 chromium \
+  --app='https://demogamehub4.knfstudios.com/marketplace/' \
   --no-first-run \
   --disable-infobars \
-  --disable-session-crashed-bubble \
-  --disable-restore-session-state \
   --noerrdialogs \
   --disable-translate \
   --check-for-update-interval=31536000 \
   --enable-gpu-rasterization \
   --enable-accelerated-video-decode \
+  --remote-debugging-port=9222 \
   --window-position=0,30 \
-  --window-size=800,450 \
-  --start-fullscreen \
-  'https://demogamehub4.knfstudios.com/marketplace/' &
+  --window-size=800,450 &
