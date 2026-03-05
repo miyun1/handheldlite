@@ -1,0 +1,37 @@
+#!/bin/bash
+# KNF Studios GameHub - Openbox Autostart
+# Place at: ~/.config/openbox/autostart
+
+# Hide cursor after 3 seconds idle
+unclutter -idle 3 &
+
+# Disable screensaver and power management
+xset s off
+xset s noblank
+xset -dpms
+
+# Start HUD overlay (status bar at top of screen)
+python3 /home/pi/kiosk/hud_overlay.py &
+
+# Start gamepad cursor controller
+python3 /home/pi/kiosk/gamepad_cursor.py &
+
+# Wait for system to settle
+sleep 2
+
+# Launch Chromium in kiosk mode
+# Window offset 30px from top to sit below the HUD bar
+chromium \
+  --no-first-run \
+  --disable-infobars \
+  --disable-session-crashed-bubble \
+  --disable-restore-session-state \
+  --noerrdialogs \
+  --disable-translate \
+  --check-for-update-interval=31536000 \
+  --enable-gpu-rasterization \
+  --enable-accelerated-video-decode \
+  --window-position=0,30 \
+  --window-size=800,450 \
+  --start-fullscreen \
+  'https://demogamehub4.knfstudios.com/marketplace/' &
