@@ -1,0 +1,21 @@
+[Unit]
+Description=KNF Studios GameHub Kiosk - Auto Start X11
+After=systemd-user-sessions.service network.target sound.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+PAMName=login
+TTYPath=/dev/tty1
+StandardInput=tty
+StandardOutput=journal
+StandardError=journal
+EnvironmentFile=-/etc/default/locale
+ExecStart=/usr/bin/startx /home/pi/.xinitrc -- :0 vt1
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -2,31 +2,29 @@
 # KNF Studios GameHub - Openbox Autostart
 # Place at: ~/.config/openbox/autostart
 
-# Hide cursor after 3 seconds idle
-unclutter -idle 3 &
-
 # Disable screensaver and power management
 xset s off
 xset s noblank
 xset -dpms
 
-# Start HUD overlay (30px bar at very top)
+# Move cursor to center so it is visible immediately on boot
+xdotool mousemove 400 240
+
+# Start HUD overlay (30px bar at top)
 python3 /home/pi/kiosk/hud_overlay.py &
 
 # Start gamepad cursor controller
 python3 /home/pi/kiosk/gamepad_cursor.py &
 
-# Watch for new Chromium windows and force correct size/position
-python3 /home/pi/kiosk/window_watcher.py &
-
-# Wait for system to settle
+# Wait for system to settle before launching browser
 sleep 2
 
 # Launch Chromium
-# --app mode = no address bar, no tabs, borderless window
-# --remote-debugging-port=9222 = CDP for keyboard detection
-# --window-position=0,30 = sits below the 30px HUD bar
-# --window-size=800,450 = fills rest of 800x480 screen
+# --app mode: no address bar, no tabs, borderless
+# --force-renderer-accessibility: exposes input fields to AT-SPI (needed for onboard keyboard)
+# --remote-debugging-port=9222: CDP for text input focus detection
+# --window-position=0,30: sits below the 30px HUD bar
+# --window-size=800,450: fills rest of 800x480 screen
 chromium \
   --app='https://demogamehub4.knfstudios.com/marketplace/' \
   --no-first-run \
@@ -36,6 +34,7 @@ chromium \
   --check-for-update-interval=31536000 \
   --enable-gpu-rasterization \
   --enable-accelerated-video-decode \
+  --force-renderer-accessibility \
   --remote-debugging-port=9222 \
   --window-position=0,30 \
   --window-size=800,450 &

@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc"
+                xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <resistance>
+    <strength>10</strength>
+    <screen_edge_strength>20</screen_edge_strength>
+  </resistance>
+
+  <focus>
+    <focusNew>yes</focusNew>
+    <followMouse>no</followMouse>
+    <focusLast>yes</focusLast>
+    <underMouse>no</underMouse>
+    <focusDelay>200</focusDelay>
+    <raiseOnFocus>no</raiseOnFocus>
+  </focus>
+
+  <placement>
+    <policy>Smart</policy>
+    <center>yes</center>
+    <monitor>Primary</monitor>
+    <primaryMonitor>1</primaryMonitor>
+  </placement>
+
+  <theme>
+    <n>Clearlooks</n>
+    <titleLayout>NLIMC</titleLayout>
+    <keepBorder>no</keepBorder>
+    <animateIconify>no</animateIconify>
+    <font place="ActiveWindow">
+      <n>sans</n>
+      <size>8</size>
+      <weight>bold</weight>
+      <slant>normal</slant>
+    </font>
+  </theme>
+
+  <desktops>
+    <number>1</number>
+    <firstdesk>1</firstdesk>
+    <names><n>KNF GameHub</n></names>
+    <popupTime>0</popupTime>
+  </desktops>
+
+  <resize>
+    <drawContents>yes</drawContents>
+    <popupShow>Never</popupShow>
+  </resize>
+
+  <margins>
+    <top>0</top>
+    <bottom>0</bottom>
+    <left>0</left>
+    <right>0</right>
+  </margins>
+
+  <dock>
+    <position>TopLeft</position>
+    <floatingX>0</floatingX>
+    <floatingY>0</floatingY>
+    <noStrut>no</noStrut>
+    <stacking>Above</stacking>
+    <direction>Vertical</direction>
+    <autoHide>no</autoHide>
+    <hideDelay>300</hideDelay>
+    <showDelay>300</showDelay>
+    <moveButton>Middle</moveButton>
+  </dock>
+
+  <keyboard>
+    <chainQuitKey>C-g</chainQuitKey>
+  </keyboard>
+
+  <mouse>
+    <dragThreshold>8</dragThreshold>
+    <doubleClickTime>500</doubleClickTime>
+    <screenEdgeWarpTime>400</screenEdgeWarpTime>
+    <screenEdgeWarpMouse>false</screenEdgeWarpMouse>
+    <context name="Frame">
+      <mousebind button="A-Left" action="Press">
+        <action name="Focus"/>
+        <action name="Raise"/>
+      </mousebind>
+      <mousebind button="A-Left" action="Drag">
+        <action name="Move"/>
+      </mousebind>
+    </context>
+    <context name="Titlebar">
+      <mousebind button="Left" action="Drag">
+        <action name="Move"/>
+      </mousebind>
+      <mousebind button="Left" action="DoubleClick">
+        <action name="ToggleMaximize"/>
+      </mousebind>
+    </context>
+    <context name="Desktop">
+      <mousebind button="Middle" action="Press">
+        <action name="ShowMenu">
+          <menu>client-list-combined-menu</menu>
+        </action>
+      </mousebind>
+    </context>
+    <context name="Root">
+      <mousebind button="Middle" action="Press">
+        <action name="ShowMenu">
+          <menu>client-list-combined-menu</menu>
+        </action>
+      </mousebind>
+    </context>
+  </mouse>
+
+  <menu>
+    <hideDelay>200</hideDelay>
+    <middle>no</middle>
+    <submenuShowDelay>100</submenuShowDelay>
+    <submenuHideDelay>400</submenuHideDelay>
+    <applicationIcons>no</applicationIcons>
+    <manageDesktops>no</manageDesktops>
+    <file>menu.xml</file>
+  </menu>
+
+  <!--
+    WINDOW RULES
+    Screen: 800x480
+    HUD bar: 800x30 at y=0
+    All Chromium windows: 800x450 at y=30
+    NOTE: Run this on Pi to find the real WM_CLASS of your Chromium:
+      DISPLAY=:0 xprop WM_CLASS -root
+      then click the Chromium window
+    The class names below cover the most common Chromium variants on Pi.
+  -->
+  <applications>
+
+    <!-- Chromium main window - lowercase class -->
+    <application class="chromium">
+      <decor>no</decor>
+      <shade>no</shade>
+      <position force="yes">
+        <x>0</x>
+        <y>30</y>
+      </position>
+      <size>
+        <width>800</width>
+        <height>450</height>
+      </size>
+      <focus>yes</focus>
+      <desktop>1</desktop>
+      <layer>normal</layer>
+      <fullscreen>no</fullscreen>
+      <maximized>no</maximized>
+    </application>
+
+    <!-- Chromium main window - mixed case class -->
+    <application class="Chromium">
+      <decor>no</decor>
+      <shade>no</shade>
+      <position force="yes">
+        <x>0</x>
+        <y>30</y>
+      </position>
+      <size>
+        <width>800</width>
+        <height>450</height>
+      </size>
+      <focus>yes</focus>
+      <desktop>1</desktop>
+      <layer>normal</layer>
+      <fullscreen>no</fullscreen>
+      <maximized>no</maximized>
+    </application>
+
+    <!-- Chromium browser - full name variant -->
+    <application class="chromium-browser">
+      <decor>no</decor>
+      <shade>no</shade>
+      <position force="yes">
+        <x>0</x>
+        <y>30</y>
+      </position>
+      <size>
+        <width>800</width>
+        <height>450</height>
+      </size>
+      <focus>yes</focus>
+      <desktop>1</desktop>
+      <layer>normal</layer>
+      <fullscreen>no</fullscreen>
+      <maximized>no</maximized>
+    </application>
+
+    <!-- Chromium browser - mixed case full name -->
+    <application class="Chromium-browser">
+      <decor>no</decor>
+      <shade>no</shade>
+      <position force="yes">
+        <x>0</x>
+        <y>30</y>
+      </position>
+      <size>
+        <width>800</width>
+        <height>450</height>
+      </size>
+      <focus>yes</focus>
+      <desktop>1</desktop>
+      <layer>normal</layer>
+      <fullscreen>no</fullscreen>
+      <maximized>no</maximized>
+    </application>
+
+    <!-- KNF Settings GUI - fullscreen over everything -->
+    <application name="KNF Settings" class="python3">
+      <decor>no</decor>
+      <shade>no</shade>
+      <position force="yes">
+        <x>0</x>
+        <y>0</y>
+      </position>
+      <size>
+        <width>800</width>
+        <height>480</height>
+      </size>
+      <focus>yes</focus>
+      <desktop>1</desktop>
+      <layer>above</layer>
+      <fullscreen>no</fullscreen>
+      <maximized>no</maximized>
+    </application>
+
+    <!-- KNF HUD bar - always on top, thin 30px strip -->
+    <application name="KNF HUD" class="python3">
+      <decor>no</decor>
+      <shade>no</shade>
+      <position force="yes">
+        <x>0</x>
+        <y>0</y>
+      </position>
+      <size>
+        <width>800</width>
+        <height>30</height>
+      </size>
+      <focus>no</focus>
+      <desktop>1</desktop>
+      <layer>above</layer>
+      <fullscreen>no</fullscreen>
+      <maximized>no</maximized>
+    </application>
+
+  </applications>
+
+</openbox_config>

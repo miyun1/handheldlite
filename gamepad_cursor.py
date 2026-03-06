@@ -7,8 +7,8 @@ Button Map (Xbox / Logitech F310):
   A (BTN_SOUTH)  = Left click  +  auto-show keyboard if text input focused
   B (BTN_EAST)   = Right click (tap) / Go Home (hold 2s)
   X (BTN_WEST)   = Middle click
-  Y (BTN_NORTH)  = Manually toggle on-screen keyboard
-  Start          = Open settings GUI
+  Y (BTN_NORTH)  = Toggle on-screen keyboard manually
+  Start          = Toggle settings GUI (open if closed, close if open)
   LB (BTN_TL)    = Scroll up   (hold)
   RB (BTN_TR)    = Scroll down (hold)
   D-pad Up/Down  = Scroll up / down (hold)
@@ -24,22 +24,35 @@ import json
 os.environ['DISPLAY'] = ':0'
 
 # ── Settings ───────────────────────────────────────────────────────────────────
-CURSOR_SPEED      = 8       # pixels per tick
-DEADZONE          = 0.15    # ignore stick below this
-HOLD_DURATION     = 2.0     # seconds to hold B to go home
-SCROLL_DELAY      = 0.08    # seconds between scroll steps
-AXIS_MAX          = 32767
-CDP_URL           = 'http://localhost:9222'   # Chromium remote debug port
-KB_CHECK_DELAY    = 0.4     # seconds after click before checking focus
-KB_POLL_INTERVAL  = 1.0     # seconds between auto-hide checks
+CURSOR_SPEED     = 8
+DEADZONE         = 0.15
+HOLD_DURATION    = 2.0
+SCROLL_DELAY     = 0.08
+AXIS_MAX         = 32767
+CDP_URL          = 'http://localhost:9222'
+KB_CHECK_DELAY   = 0.5    # seconds after A-click before checking focus
+KB_POLL_INTERVAL = 1.5    # seconds between auto-hide checks
 
-keyboard_visible  = False
-keyboard_lock     = threading.Lock()
+# ── Process helpers — always reflect real state via pgrep ──────────────────────
+def is_running(name):
+    """Check if a process matching name is currently running."""
+    try:
+        result = subprocess.run(
+            ['pgrep', '-f', name],
+            capture_output=True, text=True
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+def kill_process(name):
+    """Kill all processes matching name."""
+    subprocess.run(['pkill', '-f', name], capture_output=True)
 
 # ── Gamepad detection ──────────────────────────────────────────────────────────
 def find_gamepad():
     for path in evdev.list_devices():
-        dev = evdev.InputDevice(path)
+        dev  = evdev.InputDevice(path)
         caps = dev.capabilities()
         name = dev.name.lower()
         skip = ['touch', 'ft5x06', 'edt-ft', 'touchscreen', 'touchpad']
@@ -68,95 +81,128 @@ def scroll(direction):
 def go_home():
     subprocess.run(['xdotool', 'key', 'ctrl+w'], capture_output=True)
 
-def open_settings():
-    subprocess.Popen(['python3', '/home/pi/kiosk/settings_gui.py'])
+# ── Settings toggle ────────────────────────────────────────────────────────────
+def toggle_settings():
+    """
+    Open settings if not running. Close it if already open.
+    Uses pgrep so the check always reflects reality — no flag drift.
+    """
+    if is_running('settings_gui.py'):
+        print('Settings: closing')
+        kill_process('settings_gui.py')
+    else:
+        print('Settings: opening')
+        subprocess.Popen(
+            ['python3', '/home/pi/kiosk/settings_gui.py'],
+            env=dict(os.environ, DISPLAY=':0')
+        )
 
-# ── On-screen keyboard ─────────────────────────────────────────────────────────
+# ── On-screen keyboard (onboard) ───────────────────────────────────────────────
+def keyboard_is_open():
+    """Always check real process state — never use a flag."""
+    return is_running('onboard')
+
 def show_keyboard():
-    global keyboard_visible
-    with keyboard_lock:
-        if not keyboard_visible:
-            subprocess.Popen(['matchbox-keyboard'])
-            keyboard_visible = True
-            print('Keyboard: shown')
+    if not keyboard_is_open():
+        print('Keyboard: showing')
+        subprocess.Popen(
+            ['onboard',
+             '--layout=Phone',
+             '--size=800x200',
+             '--x-position=0',
+             '--y-position=280'],
+            env=dict(os.environ, DISPLAY=':0')
+        )
+        time.sleep(0.3)
 
 def hide_keyboard():
-    global keyboard_visible
-    with keyboard_lock:
-        if keyboard_visible:
-            subprocess.run(['pkill', 'matchbox-keyboard'], capture_output=True)
-            keyboard_visible = False
-            print('Keyboard: hidden')
+    if keyboard_is_open():
+        print('Keyboard: hiding')
+        kill_process('onboard')
 
 def toggle_keyboard():
-    if keyboard_visible:
+    """Y button — toggle keyboard open/closed based on real process state."""
+    if keyboard_is_open():
         hide_keyboard()
     else:
         show_keyboard()
 
-# ── CDP: check if a text input is focused in Chromium ─────────────────────────
+# ── CDP: check if text input is focused in Chromium ───────────────────────────
 def is_input_focused():
     """
-    Queries Chromium via Chrome DevTools Protocol (CDP).
-    Returns True if the currently focused element is a text input.
+    Query Chromium via Chrome DevTools Protocol.
+    Returns True if the focused element is a text input or textarea.
     Requires: pip3 install websocket-client
     Requires: chromium launched with --remote-debugging-port=9222
     """
     try:
-        import websocket  # websocket-client
+        import websocket
 
-        # Get list of debuggable tabs
         req  = urllib.request.urlopen(f'{CDP_URL}/json/list', timeout=1)
         tabs = json.loads(req.read())
         if not tabs:
             return False
 
-        # Connect to first tab's websocket
-        ws_url = tabs[0].get('webSocketDebuggerUrl', '')
+        # Find a page tab with a websocket URL (skip service workers)
+        ws_url = None
+        for tab in tabs:
+            if tab.get('type') == 'page' and tab.get('webSocketDebuggerUrl'):
+                ws_url = tab['webSocketDebuggerUrl']
+                break
         if not ws_url:
             return False
 
         ws = websocket.create_connection(ws_url, timeout=2)
-
-        # Ask: is the focused element a text input or textarea?
         js = (
-            "var el = document.activeElement;"
-            "var tag = el ? el.tagName : '';"
-            "var type = el ? (el.type || '') : '';"
-            "var editable = el ? el.isContentEditable : false;"
-            "(['INPUT','TEXTAREA'].includes(tag) && "
-            " !['button','submit','reset','checkbox','radio','file','image'].includes(type.toLowerCase()))"
-            " || editable;"
+            "(function(){"
+            "  var el = document.activeElement;"
+            "  if (!el) return false;"
+            "  var tag  = el.tagName.toUpperCase();"
+            "  var type = (el.type || '').toLowerCase();"
+            "  var skip = ['button','submit','reset','checkbox',"
+            "              'radio','file','image','range','color'];"
+            "  if (tag === 'TEXTAREA') return true;"
+            "  if (tag === 'INPUT' && skip.indexOf(type) === -1) return true;"
+            "  if (el.isContentEditable) return true;"
+            "  return false;"
+            "})()"
         )
         ws.send(json.dumps({
             'id': 1,
             'method': 'Runtime.evaluate',
             'params': {'expression': js}
         }))
-        result  = json.loads(ws.recv())
+        result = json.loads(ws.recv())
         ws.close()
-        value = result.get('result', {}).get('result', {}).get('value', False)
+        value  = result.get('result', {}).get('result', {}).get('value', False)
         return bool(value)
 
-    except Exception as e:
-        # CDP not ready yet or Chromium not open — silent fail
+    except Exception:
         return False
 
-def check_and_show_keyboard():
-    """Called in a thread after A button click with a short delay."""
+def check_keyboard_after_click():
+    """
+    Called in a thread after A button click.
+    Waits briefly for browser focus to settle, then shows keyboard if input focused.
+    """
     time.sleep(KB_CHECK_DELAY)
     if is_input_focused():
         show_keyboard()
 
 def keyboard_autohide_loop():
-    """Background thread: hides keyboard when focus leaves a text input."""
+    """
+    Background thread.
+    Hides keyboard automatically when focus leaves a text input.
+    """
     while True:
         time.sleep(KB_POLL_INTERVAL)
-        if keyboard_visible:
-            if not is_input_focused():
+        try:
+            if keyboard_is_open() and not is_input_focused():
                 hide_keyboard()
+        except Exception:
+            pass
 
-# ── Main controller class ──────────────────────────────────────────────────────
+# ── Main controller ────────────────────────────────────────────────────────────
 class Controller:
     def __init__(self):
         self.ax         = 0.0
@@ -191,58 +237,57 @@ class Controller:
 
     def handle(self, dev):
         for ev in dev.read_loop():
+
             if ev.type == evdev.ecodes.EV_ABS:
                 v = self.norm(ev.value)
-
                 if ev.code == evdev.ecodes.ABS_X:
                     self.ax = v
                 elif ev.code == evdev.ecodes.ABS_Y:
                     self.ay = v
-
-                # D-pad as axis
                 elif ev.code == evdev.ecodes.ABS_HAT0Y:
                     if ev.value == -1:
-                        self.dup_held   = True
-                        self.ddown_held = False
+                        self.dup_held = True;   self.ddown_held = False
                     elif ev.value == 1:
-                        self.ddown_held = True
-                        self.dup_held   = False
+                        self.ddown_held = True;  self.dup_held = False
                     else:
-                        self.dup_held   = False
-                        self.ddown_held = False
+                        self.dup_held = False;   self.ddown_held = False
 
             elif ev.type == evdev.ecodes.EV_KEY:
                 c   = ev.code
                 val = ev.value
 
-                # A — Left click, then check if input focused
+                # A — Left click + check for text input focus
                 if c == evdev.ecodes.BTN_SOUTH and val == 1:
                     click('left')
                     threading.Thread(
-                        target=check_and_show_keyboard,
+                        target=check_keyboard_after_click,
                         daemon=True
                     ).start()
 
-                # B — Right click (tap) / Go Home (hold 2s)
+                # B — Right click (tap) or Go Home (hold 2s)
                 elif c == evdev.ecodes.BTN_EAST:
                     if val == 1:
                         self.b_time = time.time()
                     elif val == 0 and self.b_time:
                         held = time.time() - self.b_time
-                        go_home() if held >= HOLD_DURATION else click('right')
+                        if held >= HOLD_DURATION:
+                            hide_keyboard()
+                            go_home()
+                        else:
+                            click('right')
                         self.b_time = None
 
                 # X — Middle click
                 elif c == evdev.ecodes.BTN_WEST and val == 1:
                     click('middle')
 
-                # Y — Manually toggle keyboard
+                # Y — Toggle keyboard
                 elif c == evdev.ecodes.BTN_NORTH and val == 1:
                     toggle_keyboard()
 
-                # Start — Open settings GUI
+                # Start — Toggle settings (open if closed, close if open)
                 elif c == evdev.ecodes.BTN_START and val == 1:
-                    open_settings()
+                    toggle_settings()
 
                 # LB — Scroll up
                 elif c == evdev.ecodes.BTN_TL:
@@ -253,11 +298,7 @@ class Controller:
                     self.rb_held = (val == 1)
 
     def run(self):
-        # Start keyboard auto-hide watcher
-        threading.Thread(
-            target=keyboard_autohide_loop,
-            daemon=True
-        ).start()
+        threading.Thread(target=keyboard_autohide_loop, daemon=True).start()
 
         while True:
             dev = find_gamepad()
@@ -268,7 +309,6 @@ class Controller:
 
             t = threading.Thread(target=self.cursor_loop, daemon=True)
             t.start()
-
             try:
                 self.handle(dev)
             except OSError:
